@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Código generado por shadcn/ui (vendored). Lo tipamos (tsc) pero no lo
+    // linteamos: son primitivas de terceros, no código propio del proyecto.
+    "src/components/ui/**",
+    "src/hooks/**",
   ]),
 ]);
 
