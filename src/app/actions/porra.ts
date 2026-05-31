@@ -172,6 +172,47 @@ export async function guardarPronostico(
 }
 
 // ============================================================================
+// [FE-Agent] Perfil corporativo: hub, estudio, nacionalidad
+// ============================================================================
+
+interface ActualizarPerfilCorporativoInput {
+  hub: string
+  estudio: string
+  nacionalidad: string
+}
+
+/**
+ * Actualiza los datos corporativos del usuario autenticado.
+ * La RLS `perfiles_update_own` garantiza que sólo se puede modificar la
+ * propia fila (auth.uid() = id). Doble verificación de sesión activa.
+ */
+export async function actualizarPerfilCorporativoAction(
+  input: ActualizarPerfilCorporativoInput
+): Promise<ResultadoAccion> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'No autenticado.' }
+
+  const { error } = await supabase
+    .from('perfiles')
+    .update({
+      hub: input.hub,
+      estudio: input.estudio,
+      nacionalidad: input.nacionalidad,
+    })
+    .eq('id', user.id)
+
+  if (error) return { ok: false, error: 'No se pudo actualizar el perfil.' }
+
+  revalidatePath('/')
+  revalidatePath('/perfil')
+  return { ok: true }
+}
+
+// ============================================================================
 // [FE-Agent] Administración: gestión de resultados de partidos
 // ============================================================================
 

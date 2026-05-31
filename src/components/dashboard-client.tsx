@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Toaster } from "@/components/ui/sonner"
 import { Header } from "@/components/header"
 import { MatchesView } from "@/components/matches-view"
 import { Leaderboard } from "@/components/leaderboard"
 import { RulesSection } from "@/components/rules-section"
+import { UserRound } from "lucide-react"
 import type { Equipo, PartidoConPronostico, Perfil } from "@/types/porra"
 
 interface DashboardClientProps {
@@ -31,6 +33,26 @@ export function DashboardClient({ perfil, partidos, equipos, players }: Dashboar
       />
 
       <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+        {/* Onboarding banner: shown when hub or estudio is missing */}
+        {(!perfil.hub || !perfil.estudio) && (
+          <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-xl border border-fifa-gold/40 bg-fifa-gold/10 p-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-xl">⚠️</span>
+              <p className="text-sm text-foreground">
+                <span className="font-semibold text-fifa-gold">¡Completa tu perfil corporativo</span>{" "}
+                para aparecer en los filtros del Leaderboard.
+              </p>
+            </div>
+            <Link
+              href="/perfil"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-fifa-gold/50 bg-fifa-gold/20 px-4 py-2 text-sm font-medium text-fifa-gold transition hover:bg-fifa-gold/30"
+            >
+              <UserRound className="h-4 w-4" />
+              Completar perfil
+            </Link>
+          </div>
+        )}
+
         {/* Hero section */}
         <div className="mb-8 overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-secondary via-card to-secondary/50 p-6 md:p-8">
           <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">

@@ -5,44 +5,21 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 
 /**
- * Inicia sesión con email/password. En error, redirige de vuelta a /login
- * con un mensaje en el query string (legible desde searchParams).
+ * Envía un Magic Link al email indicado.
+ * Restricción de dominio @globant.com desactivada temporalmente para pruebas.
+ * Para reactivarla: añadir validación endsWith('@globant.com') antes del OTP
+ * y restaurar la migración 0008_restriccion_globant.sql en Supabase.
  */
-export async function login(formData: FormData) {
+export async function solicitarMagicLink(formData: FormData) {
+  const email = String(formData.get('email') ?? '').trim()
+
   const supabase = await createClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
-  const credenciales = {
-    email: String(formData.get('email') ?? ''),
-    password: String(formData.get('password') ?? ''),
-  }
-
-  const { error } = await supabase.auth.signInWithPassword(credenciales)
-
-  if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`)
-  }
-
-  revalidatePath('/', 'layout')
-  redirect('/')
-}
-
-/**
- * Registra un nuevo usuario. El trigger handle_new_user() creará su perfil.
- * Si el proyecto exige confirmación por email, se informa al usuario.
- */
-export async function signup(formData: FormData) {
-  const supabase = await createClient()
-
-  const email = String(formData.get('email') ?? '')
-  const password = String(formData.get('password') ?? '')
-  const nombre_completo = String(formData.get('nombre_completo') ?? '')
-
-  const { error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signInWithOtp({
     email,
-    password,
     options: {
-      // Se guarda en raw_user_meta_data y lo lee el trigger de perfiles.
-      data: { nombre_completo },
+      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   })
 
@@ -50,7 +27,11 @@ export async function signup(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  redirect('/login?message=Revisa%20tu%20email%20para%20confirmar%20la%20cuenta')
+  redirect(
+    `/login?message=${encodeURIComponent(
+      `Revisa tu bandeja de ${email} — te hemos enviado un enlace de acceso.`
+    )}`
+  )
 }
 
 /** Cierra la sesión y vuelve a /login. */

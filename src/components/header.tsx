@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Trophy, Star, Menu, Sparkles, LogOut, ShieldCheck } from "lucide-react"
+import { Trophy, Star, Menu, Sparkles, LogOut, ShieldCheck, UserRound } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { signout } from "@/app/login/actions"
@@ -95,6 +95,15 @@ export function Header({ userName, userPoints, activeTab, onTabChange, isAdmin =
             </Badge>
           </div>
 
+          {/* Profile link */}
+          <Link
+            href="/perfil"
+            className="hidden items-center gap-1.5 rounded-lg border border-border/50 bg-secondary/50 px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-fifa-green/30 hover:bg-fifa-green/10 hover:text-fifa-green md:flex"
+          >
+            <UserRound className="h-4 w-4" />
+            Mi Perfil
+          </Link>
+
           {/* Admin access (sólo administradores) */}
           {isAdmin && (
             <Link
@@ -172,7 +181,17 @@ export function Header({ userName, userPoints, activeTab, onTabChange, isAdmin =
                 ))}
               </nav>
 
-              <form action={signout} className="mt-6 border-t border-border/50 pt-4">
+              <div className="mt-4 border-t border-border/50 pt-4 space-y-2">
+                <Link
+                  href="/perfil"
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-base text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                >
+                  <UserRound className="h-4 w-4" />
+                  Mi Perfil
+                </Link>
+              </div>
+
+              <form action={signout} className="mt-2 border-t border-border/50 pt-4">
                 <Button type="submit" variant="ghost" className="w-full justify-start text-base text-muted-foreground">
                   <LogOut className="mr-2 h-4 w-4" />
                   Cerrar sesión
