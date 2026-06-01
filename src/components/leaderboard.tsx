@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Trophy, Medal, Award, Building2, MapPin, Users, Globe, Flag } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { NationalityAvatar } from "@/components/nationality-avatar"
 import { perfilToPlayer, type PlayerVM } from "@/lib/mappers"
+import { flagDeNacionalidad, codigoDeNacionalidad } from "@/lib/flags"
 import type { Perfil } from "@/types/porra"
 
 interface GroupRanking {
@@ -184,15 +185,18 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8 border border-border/50">
-                      <AvatarFallback className="bg-secondary text-xs">
-                        {player.name.split(" ").map((n) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{player.name}</span>
-                      <span className="text-sm">{player.nationalityFlag}</span>
-                    </div>
+                    <NationalityAvatar
+                      name={player.name}
+                      flagUrl={player.nationalityFlag}
+                      className="h-8 w-8 shrink-0"
+                      fallbackClassName="text-xs"
+                    />
+                    <span className="font-medium text-foreground">
+                      {player.name}
+                      {player.name !== player.emailAlias && (
+                        <span className="font-normal text-muted-foreground"> ({player.emailAlias})</span>
+                      )}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
@@ -206,9 +210,14 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
-                  <Badge variant="outline" className="border-border/50 bg-secondary/50">
-                    {player.nationality}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {player.nationalityFlag && (
+                      <img src={player.nationalityFlag} alt={player.nationality} className="h-4 w-6 object-contain" />
+                    )}
+                    <span className="text-sm text-muted-foreground">
+                      {player.nationalityCode ? player.nationalityCode.toUpperCase() : player.nationality}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <span className={cn(
@@ -308,12 +317,27 @@ function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/50">
-                      {getGroupIcon()}
-                    </div>
-                    <Badge variant="outline" className={getGroupBadgeStyles()}>
-                      {group.name}
-                    </Badge>
+                    {groupType !== "nationality" && (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/50">
+                        {getGroupIcon()}
+                      </div>
+                    )}
+                    {groupType === "nationality" ? (
+                      <div className="flex items-center gap-2">
+                        {flagDeNacionalidad(group.name) && (
+                          <img
+                            src={flagDeNacionalidad(group.name)}
+                            alt={group.name}
+                            className="h-4 w-6 object-contain"
+                          />
+                        )}
+                        <span className="text-sm text-foreground/70">{group.name}</span>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className={getGroupBadgeStyles()}>
+                        {group.name}
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-center">

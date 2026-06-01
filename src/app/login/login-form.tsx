@@ -1,7 +1,11 @@
 "use client"
 
 import { Sparkles } from "lucide-react"
+import { EMAIL_SIN_ALIAS_MENSAJE } from "@/lib/email"
 import { solicitarMagicLink } from "./actions"
+
+/** Parte local sin + (alias); el navegador valida antes del envío. */
+const PATRON_EMAIL_SIN_ALIAS = "^[^+@\\s]+@[^+@\\s]+\\.[^+@\\s]+$"
 
 export function LoginForm() {
   return (
@@ -16,11 +20,13 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
+          pattern={PATRON_EMAIL_SIN_ALIAS}
+          title={EMAIL_SIN_ALIAS_MENSAJE}
           className="rounded-lg border border-border bg-input/50 px-3 py-2 text-foreground placeholder-muted-foreground focus:border-fifa-green focus:outline-none focus:ring-1 focus:ring-fifa-green"
           placeholder="tu@email.com"
         />
         <p className="text-xs text-muted-foreground">
-          Te enviaremos un enlace mágico de acceso a tu bandeja de entrada.
+          Te enviaremos un enlace mágico de acceso a tu bandeja de entrada. No se permiten alias con signo +.
         </p>
       </div>
 

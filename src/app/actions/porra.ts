@@ -58,6 +58,9 @@ export async function getPartidosConPronostico(): Promise<PartidoConPronostico[]
 
   if (partidosRes.error || !partidosRes.data) return []
 
+  if (pronosticosRes.error) {
+    console.error('[getPartidosConPronostico] Error al obtener pronósticos:', pronosticosRes.error)
+  }
   const pronosticos = (pronosticosRes.data ?? []) as Pronostico[]
   const porPartido = new Map<number, Pronostico>(
     pronosticos.map((p) => [p.partido_id, p])
@@ -87,12 +90,28 @@ export async function getEquipos(): Promise<Equipo[]> {
   return data as Equipo[]
 }
 
-/** Perfiles ordenados por puntos (ranking general). */
+/** Perfiles ordenados por puntos (ranking de la cohorte del usuario). Excluye admin. */
 export async function getLeaderboard(): Promise<Perfil[]> {
   const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: perfil, error: errorPerfil } = await supabase
+    .from('perfiles')
+    .select('is_glober')
+    .eq('id', user.id)
+    .single()
+
+  if (errorPerfil || !perfil) return []
+
   const { data, error } = await supabase
     .from('perfiles')
     .select('*')
+    .eq('rol', 'user')
+    .eq('is_glober', perfil.is_glober)
     .order('puntos_totales', { ascending: false })
   if (error || !data) return []
   return data as Perfil[]
@@ -182,6 +201,29 @@ interface ActualizarPerfilCorporativoInput {
 }
 
 /**
+ * Actualiza únicamente el nombre visible del usuario autenticado.
+ */
+export async function actualizarNombreAction(
+  nombre_completo: string
+): Promise<ResultadoAccion> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'No autenticado.' }
+
+  const trimmed = nombre_completo.trim()
+  const { error } = await supabase
+    .from('perfiles')
+    .update({ nombre_completo: trimmed || null })
+    .eq('id', user.id)
+
+  if (error) return { ok: false, error: 'No se pudo actualizar el nombre.' }
+
+  revalidatePath('/')
+  revalidatePath('/perfil')
+  return { ok: true }
+}
+
+/**
  * Actualiza los datos corporativos del usuario autenticado.
  * La RLS `perfiles_update_own` garantiza que sólo se puede modificar la
  * propia fila (auth.uid() = id). Doble verificación de sesión activa.
@@ -195,6 +237,16 @@ export async function actualizarPerfilCorporativoAction(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'No autenticado.' }
+
+  const { data: perfilActual } = await supabase
+    .from('perfiles')
+    .select('rol')
+    .eq('id', user.id)
+    .single()
+
+  if (perfilActual?.rol === 'admin') {
+    return { ok: false, error: 'El perfil administrador no puede tener datos corporativos.' }
+  }
 
   const { error } = await supabase
     .from('perfiles')
@@ -284,7 +336,7 @@ export async function finalizarPartidoAction(
     return { ok: false, error: 'Partido no encontrado.' }
   }
 
-  const esEliminatoria = partido.fase !== 'Grupos'
+  const esEliminatoria = !partido.fase.startsWith('Grupos')
   const esEmpate = input.golesLocal === input.golesVisitante
   const clasifica = input.clasificaReal ?? null
 
@@ -318,6 +370,71 @@ export async function finalizarPartidoAction(
 
   // Todo el sitio debe reflejar los nuevos puntos y estados al instante.
   revalidatePath('/')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/** Marca el resultado como cerrado (sólo partidos ya procesados). */
+export async function cerrarPartidoAction(partidoId: number): Promise<ResultadoAccion> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'No autenticado.' }
+
+  const { data: perfil } = await supabase
+    .from('perfiles')
+    .select('rol')
+    .eq('id', user.id)
+    .single()
+
+  if (!perfil || perfil.rol !== 'admin') {
+    return { ok: false, error: 'Acceso denegado: se requiere rol de administrador.' }
+  }
+
+  const { data: partido, error: errorPartido } = await supabase
+    .from('partidos')
+    .select('procesado, resultado_cerrado')
+    .eq('id', partidoId)
+    .single()
+
+  if (errorPartido || !partido) {
+    const msg = errorPartido?.message ?? ''
+    if (msg.includes('resultado_cerrado')) {
+      return {
+        ok: false,
+        error:
+          'Falta la columna resultado_cerrado en la base de datos. Ejecuta supabase/scripts/apply_resultado_cerrado.sql en el SQL Editor de Supabase.',
+      }
+    }
+    return { ok: false, error: 'Partido no encontrado.' }
+  }
+
+  if (!partido.procesado) {
+    return { ok: false, error: 'Solo puedes cerrar un partido que ya tiene resultado cargado.' }
+  }
+
+  if (partido.resultado_cerrado) {
+    return { ok: false, error: 'El resultado de este partido ya está cerrado.' }
+  }
+
+  const { error } = await supabase
+    .from('partidos')
+    .update({ resultado_cerrado: true })
+    .eq('id', partidoId)
+
+  if (error) {
+    if (error.message.includes('resultado_cerrado')) {
+      return {
+        ok: false,
+        error:
+          'Falta la columna resultado_cerrado en la base de datos. Ejecuta supabase/scripts/apply_resultado_cerrado.sql en el SQL Editor de Supabase.',
+      }
+    }
+    return { ok: false, error: 'No se pudo cerrar el partido.' }
+  }
+
   revalidatePath('/admin')
   return { ok: true }
 }

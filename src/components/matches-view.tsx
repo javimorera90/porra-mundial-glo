@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Filter, Lock, Unlock, CheckCircle2, Trophy, ArrowUpDown, Users, Layers } from "lucide-react"
+import { Calendar, Filter, Lock, Unlock, CheckCircle2, Trophy, ArrowUpDown, Users, Layers, BookmarkX } from "lucide-react"
 import { guardarPronostico } from "@/app/actions/porra"
 import { partidoToMatch, type MatchVM } from "@/lib/mappers"
 import type { Equipo, PartidoConPronostico } from "@/types/porra"
+import { cn } from "@/lib/utils"
 
 const SORT_OPTIONS = [
   { value: "date", label: "Por Fecha" },
@@ -31,6 +32,9 @@ export function MatchesView({ partidos, equipos }: MatchesViewProps) {
 
   const [phaseFilter, setPhaseFilter] = useState("Todas")
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "closed" | "finished">("all")
+  const [groupFilter, setGroupFilter] = useState("Todos")
+  const [teamFilter, setTeamFilter] = useState("Todos")
+  const [unpredictedOnly, setUnpredictedOnly] = useState(false)
 
   // Finished matches filters and sorting
   const [finishedTeamFilter, setFinishedTeamFilter] = useState("Todos")
@@ -43,10 +47,30 @@ export function MatchesView({ partidos, equipos }: MatchesViewProps) {
     return ["Todas", ...Array.from(set)]
   }, [matches])
 
+  const groups = useMemo(() => {
+    const set = new Set(
+      matches.filter((m) => m.status !== "finished" && m.grupo).map((m) => m.grupo!)
+    )
+    return ["Todos", ...Array.from(set).sort()]
+  }, [matches])
+
+  const teams = useMemo(() => {
+    const set = new Set<string>()
+    matches.filter((m) => m.status !== "finished").forEach((m) => {
+      set.add(m.homeTeam)
+      set.add(m.awayTeam)
+    })
+    return ["Todos", ...Array.from(set).sort()]
+  }, [matches])
+
   const filteredMatches = matches.filter((m) => {
-    const phaseMatch = phaseFilter === "Todas" || m.phase === phaseFilter
-    const statusMatch = statusFilter === "all" || m.status === statusFilter
-    return phaseMatch && statusMatch && m.status !== "finished"
+    if (m.status === "finished") return false
+    if (phaseFilter !== "Todas" && m.phase !== phaseFilter) return false
+    if (statusFilter !== "all" && m.status !== statusFilter) return false
+    if (groupFilter !== "Todos" && m.grupo !== groupFilter) return false
+    if (teamFilter !== "Todos" && m.homeTeam !== teamFilter && m.awayTeam !== teamFilter) return false
+    if (unpredictedOnly && m.homePrediction !== undefined) return false
+    return true
   })
 
   const finishedMatches = matches.filter((m) => m.status === "finished")
@@ -127,35 +151,83 @@ export function MatchesView({ partidos, equipos }: MatchesViewProps) {
         </div>
 
         {/* Filters row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <TabsList className="bg-secondary/50">
-              <TabsTrigger value="all" className="data-[state=active]:bg-fifa-green data-[state=active]:text-fifa-green-foreground">
-                Todos
-              </TabsTrigger>
-              <TabsTrigger value="open" className="data-[state=active]:bg-fifa-green data-[state=active]:text-fifa-green-foreground">
-                <Unlock className="mr-1.5 h-3.5 w-3.5" />
-                Abiertos
-              </TabsTrigger>
-              <TabsTrigger value="closed" className="data-[state=active]:bg-status-closed data-[state=active]:text-white">
-                <Lock className="mr-1.5 h-3.5 w-3.5" />
-                Cerrados
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <TabsList className="bg-secondary/50">
+                <TabsTrigger value="all" className="data-[state=active]:bg-fifa-green data-[state=active]:text-fifa-green-foreground">
+                  Todos
+                </TabsTrigger>
+                <TabsTrigger value="open" className="data-[state=active]:bg-fifa-green data-[state=active]:text-fifa-green-foreground">
+                  <Unlock className="mr-1.5 h-3.5 w-3.5" />
+                  Abiertos
+                </TabsTrigger>
+                <TabsTrigger value="closed" className="data-[state=active]:bg-status-closed data-[state=active]:text-white">
+                  <Lock className="mr-1.5 h-3.5 w-3.5" />
+                  Cerrados
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={phaseFilter} onValueChange={setPhaseFilter}>
-              <SelectTrigger className="w-44 border-border/50 bg-secondary/50">
-                <SelectValue placeholder="Filtrar por fase" />
-              </SelectTrigger>
-              <SelectContent>
-                {phases.map((phase) => (
-                  <SelectItem key={phase} value={phase}>{phase}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={phaseFilter} onValueChange={setPhaseFilter}>
+                <SelectTrigger className="w-44 border-border/50 bg-secondary/50">
+                  <SelectValue placeholder="Filtrar por fase" />
+                </SelectTrigger>
+                <SelectContent>
+                  {phases.map((phase) => (
+                    <SelectItem key={phase} value={phase}>{phase}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {groups.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-muted-foreground" />
+                <Select value={groupFilter} onValueChange={setGroupFilter}>
+                  <SelectTrigger className="w-32 border-border/50 bg-secondary/50">
+                    <SelectValue placeholder="Grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((g) => (
+                      <SelectItem key={g} value={g}>{g === "Todos" ? "Todos los grupos" : `Grupo ${g}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="w-40 border-border/50 bg-secondary/50">
+                  <SelectValue placeholder="Equipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((t) => (
+                    <SelectItem key={t} value={t}>{t === "Todos" ? "Todos los equipos" : t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setUnpredictedOnly((v) => !v)}
+              className={cn(
+                "flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                unpredictedOnly
+                  ? "border-fifa-gold/50 bg-fifa-gold/10 text-fifa-gold"
+                  : "border-border/50 bg-secondary/50 text-muted-foreground hover:bg-secondary"
+              )}
+            >
+              <BookmarkX className="h-4 w-4" />
+              Sin pronosticar
+            </button>
           </div>
         </div>
       </div>

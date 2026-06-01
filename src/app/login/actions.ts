@@ -2,18 +2,25 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { validarEmailAccesoPermitido } from '@/lib/auth-access'
+import { validarEmailSinAlias } from '@/lib/email'
 import { createClient } from '@/utils/supabase/server'
 
-/**
- * Envía un Magic Link al email indicado.
- * Restricción de dominio @globant.com desactivada temporalmente para pruebas.
- * Para reactivarla: añadir validación endsWith('@globant.com') antes del OTP
- * y restaurar la migración 0008_restriccion_globant.sql en Supabase.
- */
+/** Envía un Magic Link al email indicado (@globant.com o excepciones en BBDD). */
 export async function solicitarMagicLink(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim()
 
+  const errorEmail = validarEmailSinAlias(email)
+  if (errorEmail) {
+    redirect(`/login?error=${encodeURIComponent(errorEmail)}`)
+  }
+
   const supabase = await createClient()
+
+  const errorAcceso = await validarEmailAccesoPermitido(supabase, email)
+  if (errorAcceso) {
+    redirect(`/login?error=${encodeURIComponent(errorAcceso)}`)
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
   const { error } = await supabase.auth.signInWithOtp({

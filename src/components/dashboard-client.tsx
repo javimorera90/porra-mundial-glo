@@ -8,6 +8,7 @@ import { MatchesView } from "@/components/matches-view"
 import { Leaderboard } from "@/components/leaderboard"
 import { RulesSection } from "@/components/rules-section"
 import { UserRound } from "lucide-react"
+import { flagDeNacionalidad } from "@/lib/flags"
 import type { Equipo, PartidoConPronostico, Perfil } from "@/types/porra"
 
 interface DashboardClientProps {
@@ -27,17 +28,18 @@ export function DashboardClient({ perfil, partidos, equipos, players }: Dashboar
       <Header
         userName={userName}
         userPoints={perfil.puntos_totales}
+        userFlagUrl={flagDeNacionalidad(perfil.nacionalidad)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isAdmin={perfil.rol === 'admin'}
       />
 
       <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
-        {/* Onboarding banner: shown when hub or estudio is missing */}
-        {(!perfil.hub || !perfil.estudio) && (
+        {/* Onboarding banner: shown when hub or estudio is missing (not for admin) */}
+        {perfil.rol !== 'admin' && (!perfil.hub || !perfil.estudio) && (
           <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-xl border border-fifa-gold/40 bg-fifa-gold/10 p-4 sm:flex-row sm:items-center">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-xl">⚠️</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xl leading-none">⚠️</span>
               <p className="text-sm text-foreground">
                 <span className="font-semibold text-fifa-gold">¡Completa tu perfil corporativo</span>{" "}
                 para aparecer en los filtros del Leaderboard.
@@ -69,19 +71,19 @@ export function DashboardClient({ perfil, partidos, equipos, players }: Dashboar
               </p>
             </div>
 
-            {/* Stats cards (dinámicos) */}
+            {/* Stats cards */}
             <div className="flex gap-4">
-              <div className="flex flex-col items-center rounded-xl border border-fifa-green/30 bg-fifa-green/10 px-6 py-4">
-                <span className="text-3xl font-bold text-fifa-green">{partidos.length}</span>
-                <span className="text-xs text-muted-foreground">Partidos</span>
+              <div className="flex min-h-[6.5rem] w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-fifa-green/30 bg-fifa-green/10 px-3 py-4">
+                <span className="text-3xl font-bold leading-none text-fifa-green">104</span>
+                <span className="flex h-8 items-center justify-center text-center text-xs leading-tight text-muted-foreground">Partidos</span>
               </div>
-              <div className="flex flex-col items-center rounded-xl border border-fifa-gold/30 bg-fifa-gold/10 px-6 py-4">
-                <span className="text-3xl font-bold text-fifa-gold">{equipos.length}</span>
-                <span className="text-xs text-muted-foreground">Selecciones</span>
+              <div className="flex min-h-[6.5rem] w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-fifa-gold/30 bg-fifa-gold/10 px-3 py-4">
+                <span className="text-3xl font-bold leading-none text-fifa-gold">48</span>
+                <span className="flex h-8 items-center justify-center text-center text-xs leading-tight text-muted-foreground">Selecciones</span>
               </div>
-              <div className="flex flex-col items-center rounded-xl border border-fifa-purple/30 bg-fifa-purple/10 px-6 py-4">
-                <span className="text-3xl font-bold text-fifa-purple">{players.length}</span>
-                <span className="text-xs text-muted-foreground">Participantes</span>
+              <div className="flex min-h-[6.5rem] w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-fifa-purple/30 bg-fifa-purple/10 px-3 py-4">
+                <span className="text-3xl font-bold leading-none text-fifa-purple">{players.length}</span>
+                <span className="flex h-8 items-center justify-center text-balance text-center text-xs leading-tight text-muted-foreground">Globers participantes</span>
               </div>
             </div>
           </div>

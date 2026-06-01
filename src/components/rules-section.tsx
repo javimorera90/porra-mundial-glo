@@ -53,7 +53,7 @@ const rules: Rule[] = [
     id: "draw-inexact-correct",
     title: "Empate No Exacto + Clasificado Acertado",
     points: "+4 pts",
-    description: "En fases eliminatorias: predices empate pero no exacto, y aciertas el clasificado. Por ejemplo: predices 0-0 y termina 2-2, pero aciertas quién gana en penaltis.",
+    description: "En fases eliminatorias: predices empate pero no exacto, y aciertas el clasificado. Por ejemplo: predices 0-0 y termina 2-2, pero aciertas quién gana en penaltis. (3 pts por empate + 1 pt por clasificado)",
     icon: <HelpCircle className="h-5 w-5" />,
     color: "text-fifa-teal bg-fifa-teal/10 border-fifa-teal/30"
   },
@@ -69,7 +69,7 @@ const rules: Rule[] = [
     id: "consolation",
     title: "Consolación (Acertar clasificado fallando marcador)",
     points: "+1 pt",
-    description: "En fases eliminatorias: fallas completamente el marcador pero al menos aciertas qué equipo clasifica a la siguiente ronda.",
+    description: "En fases eliminatorias: fallas completamente el marcador pero al menos aciertas qué equipo clasifica a la siguiente ronda. Por ejemplo: predices empate y que clasifica el equipo A en penaltis, pero el equipo A gana directamente 2-0.",
     icon: <Trophy className="h-5 w-5" />,
     color: "text-muted-foreground bg-muted/50 border-muted"
   }

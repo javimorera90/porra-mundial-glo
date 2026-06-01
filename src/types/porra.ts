@@ -1,7 +1,9 @@
 /** Tipos del dominio de la Porra. Espejan el esquema SQL (no autogenerados). */
 
 export type Fase =
-  | 'Grupos'
+  | 'GruposJ1'
+  | 'GruposJ2'
+  | 'GruposJ3'
   | 'Dieciseisavos'
   | 'Octavos'
   | 'Cuartos'
@@ -27,6 +29,8 @@ export interface Perfil {
   hub: string | null
   puntos_totales: number
   rol: Rol
+  /** true si el email es @globant.com; define la cohorte del leaderboard. */
+  is_glober: boolean
 }
 
 export interface Pronostico {
@@ -45,10 +49,13 @@ export interface Partido {
   equipo_visitante: string
   fecha_hora: string
   fase: Fase
+  grupo: string | null
   goles_local_real: number | null
   goles_visitante_real: number | null
   clasifica_real: string | null
   procesado: boolean
+  /** Resultado bloqueado en admin; actualizar exige confirmación adicional. */
+  resultado_cerrado: boolean
 }
 
 /** Partido con el pronóstico del usuario acoplado (null si aún no apostó). */

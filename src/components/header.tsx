@@ -1,6 +1,6 @@
 "use client"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { NationalityAvatar } from "@/components/nationality-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -12,6 +12,7 @@ import { signout } from "@/app/login/actions"
 interface HeaderProps {
   userName: string
   userPoints: number
+  userFlagUrl?: string | null
   activeTab: string
   onTabChange: (tab: string) => void
   isAdmin?: boolean
@@ -23,7 +24,7 @@ const navItems = [
   { id: "rules", label: "Reglas del Torneo" },
 ]
 
-export function Header({ userName, userPoints, activeTab, onTabChange, isAdmin = false }: HeaderProps) {
+export function Header({ userName, userPoints, userFlagUrl, activeTab, onTabChange, isAdmin = false }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:h-20 md:px-6">
@@ -117,11 +118,7 @@ export function Header({ userName, userPoints, activeTab, onTabChange, isAdmin =
 
           {/* User avatar and name */}
           <div className="hidden items-center gap-2 md:flex">
-            <Avatar className="h-8 w-8 border-2 border-fifa-green/30">
-              <AvatarFallback className="bg-secondary text-xs">
-                {userName.split(" ").map(n => n[0]).join("")}
-              </AvatarFallback>
-            </Avatar>
+            <NationalityAvatar name={userName} flagUrl={userFlagUrl} className="h-8 w-8" fallbackClassName="text-xs" />
             <span className="text-sm font-medium text-foreground">{userName}</span>
             <form action={signout}>
               <Button
@@ -148,11 +145,7 @@ export function Header({ userName, userPoints, activeTab, onTabChange, isAdmin =
             <SheetContent side="right" className="w-80 border-border/50 bg-background">
               {/* User info in mobile menu */}
               <div className="mb-6 flex items-center gap-3 border-b border-border/50 pb-6">
-                <Avatar className="h-12 w-12 border-2 border-fifa-green/30">
-                  <AvatarFallback className="bg-secondary">
-                    {userName.split(" ").map(n => n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
+                <NationalityAvatar name={userName} flagUrl={userFlagUrl} className="h-12 w-12" />
                 <div>
                   <p className="font-semibold text-foreground">{userName}</p>
                   <div className="flex items-center gap-1 text-sm text-fifa-gold">

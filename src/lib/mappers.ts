@@ -1,5 +1,5 @@
 import type { Equipo, PartidoConPronostico, Perfil } from '@/types/porra'
-import { emojiDeEquipo, emojiDeNacionalidad } from '@/lib/flags'
+import { flagDeEquipo, flagDeNacionalidad, codigoDeNacionalidad } from '@/lib/flags'
 import { calcularPuntos } from '@/lib/scoring'
 
 /** Modelo de vista para las tarjetas de partido (shape esperado por v0). */
@@ -8,6 +8,7 @@ export interface MatchVM {
   partidoId: number
   phase: string
   fase: string
+  grupo: string | null
   homeTeam: string
   awayTeam: string
   homeCode: string
@@ -28,12 +29,22 @@ export interface MatchVM {
 }
 
 const LABEL_FASE: Record<string, string> = {
-  Grupos: 'Fase de Grupos',
+  GruposJ1: 'Fase de Grupos — Jornada 1',
+  GruposJ2: 'Fase de Grupos — Jornada 2',
+  GruposJ3: 'Fase de Grupos — Jornada 3',
   Tercer_Puesto: 'Tercer Puesto',
 }
 
 function etiquetaFase(fase: string): string {
   return LABEL_FASE[fase] ?? fase
+}
+
+export { etiquetaFase }
+
+export function phaseBadgeClassName(fase: string): string {
+  return fase.startsWith('Grupos')
+    ? 'border-fifa-purple/50 bg-fifa-purple/10 text-fifa-purple'
+    : 'border-fifa-gold/50 bg-fifa-gold/10 text-fifa-gold'
 }
 
 const fmtFecha = new Intl.DateTimeFormat('es-ES', {
@@ -48,6 +59,11 @@ const fmtHora = new Intl.DateTimeFormat('es-ES', {
   hour12: false,
   timeZone: 'Europe/Madrid',
 })
+
+export function formatearFechaPartido(fechaHora: string): { date: string; time: string } {
+  const fecha = new Date(fechaHora)
+  return { date: fmtFecha.format(fecha), time: fmtHora.format(fecha) }
+}
 
 /** Traduce el clasificado (código) a "home"/"away" según los equipos del partido. */
 function ladoClasifica(
@@ -82,16 +98,17 @@ export function partidoToMatch(
     partidoId: partido.id,
     phase: etiquetaFase(partido.fase),
     fase: partido.fase,
+    grupo: partido.grupo ?? null,
     homeTeam: equipos.get(local)?.nombre ?? local,
     awayTeam: equipos.get(visitante)?.nombre ?? visitante,
     homeCode: local,
     awayCode: visitante,
-    homeFlag: emojiDeEquipo(local),
-    awayFlag: emojiDeEquipo(visitante),
+    homeFlag: flagDeEquipo(local),
+    awayFlag: flagDeEquipo(visitante),
     date: fmtFecha.format(fecha),
     time: fmtHora.format(fecha),
     status,
-    isKnockout: partido.fase !== 'Grupos',
+    isKnockout: !partido.fase.startsWith('Grupos'),
     homePrediction: pron?.goles_local_pred,
     awayPrediction: pron?.goles_visitante_pred,
     penaltyWinner: ladoClasifica(pron?.clasifica_pred ?? null, local, visitante),
@@ -113,27 +130,37 @@ export function partidoToMatch(
   return vm
 }
 
+/** Parte local del email (antes de @), p. ej. pepe.ruso@algo.com → pepe.ruso */
+export function aliasDeEmail(email: string): string {
+  return email.split('@')[0] ?? email
+}
+
 /** Modelo de vista para las filas del leaderboard (shape esperado por v0). */
 export interface PlayerVM {
   id: string
   rank: number
   name: string
+  emailAlias: string
   points: number
   estudio: string
   hub: string
   nationality: string
+  nationalityCode: string
   nationalityFlag: string
 }
 
 export function perfilToPlayer(perfil: Perfil, rank: number): PlayerVM {
+  const emailAlias = aliasDeEmail(perfil.email)
   return {
     id: perfil.id,
     rank,
-    name: perfil.nombre_completo ?? perfil.email,
+    name: perfil.nombre_completo ?? emailAlias,
+    emailAlias,
     points: perfil.puntos_totales,
     estudio: perfil.estudio ?? 'Sin estudio',
     hub: perfil.hub ?? 'Sin HUB',
     nationality: perfil.nacionalidad ?? 'Sin nacionalidad',
-    nationalityFlag: emojiDeNacionalidad(perfil.nacionalidad),
+    nationalityCode: codigoDeNacionalidad(perfil.nacionalidad),
+    nationalityFlag: flagDeNacionalidad(perfil.nacionalidad),
   }
 }

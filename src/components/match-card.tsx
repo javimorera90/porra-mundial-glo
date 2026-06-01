@@ -3,11 +3,13 @@
 import { useState, useTransition } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Lock, Unlock, Trophy, Loader2 } from "lucide-react"
+import { Lock, Unlock, Trophy, Loader2, Save } from "lucide-react"
 import { toast } from "sonner"
+import { ScoreInput } from "@/components/ui/score-input"
+import { MatchGrupoLabel } from "@/components/match-grupo-label"
+import { PhaseBadge } from "@/components/phase-badge"
 import type { MatchVM } from "@/lib/mappers"
 import type { ResultadoAccion } from "@/types/porra"
 
@@ -28,59 +30,52 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
   const [homeGoals, setHomeGoals] = useState<string>(match.homePrediction?.toString() ?? "")
   const [awayGoals, setAwayGoals] = useState<string>(match.awayPrediction?.toString() ?? "")
   const [penaltyWinner, setPenaltyWinner] = useState<"home" | "away" | undefined>(match.penaltyWinner)
+  const [hasPrediction, setHasPrediction] = useState(match.homePrediction != null)
+  const [savedHome, setSavedHome] = useState<string>(match.homePrediction?.toString() ?? "")
+  const [savedAway, setSavedAway] = useState<string>(match.awayPrediction?.toString() ?? "")
+  const [savedPenalty, setSavedPenalty] = useState<"home" | "away" | undefined>(match.penaltyWinner)
   const [isPending, startTransition] = useTransition()
 
-  // Estado derivado: la tanda de penaltis aplica sólo en empate de eliminatoria.
   const isDraw = homeGoals !== "" && awayGoals !== "" && homeGoals === awayGoals && match.isKnockout
   const showPenalty = isDraw
 
-  // Traduce el ganador de penaltis (home/away) al código de equipo a persistir.
+  const isUnchanged =
+    hasPrediction &&
+    homeGoals === savedHome &&
+    awayGoals === savedAway &&
+    penaltyWinner === savedPenalty
+
+  const canSave =
+    !isUnchanged &&
+    homeGoals !== "" &&
+    awayGoals !== "" &&
+    (!isDraw || penaltyWinner !== undefined)
+
   const clasificaCodigo = (winner?: "home" | "away"): string | null => {
     if (winner === "home") return match.homeCode
     if (winner === "away") return match.awayCode
     return null
   }
 
-  const persistir = (home: number, away: number, winner?: "home" | "away") => {
+  const handleSave = () => {
+    if (!canSave || isPending) return
     startTransition(async () => {
       const res = await onSave({
         partidoId: match.partidoId,
-        golesLocal: home,
-        golesVisitante: away,
-        clasificaPred: clasificaCodigo(winner),
+        golesLocal: parseInt(homeGoals) || 0,
+        golesVisitante: parseInt(awayGoals) || 0,
+        clasificaPred: clasificaCodigo(penaltyWinner),
       })
       if (!res.ok) {
         toast.error(res.error)
       } else {
-        toast.success("Pronóstico guardado")
+        toast.success(hasPrediction ? "Pronóstico actualizado" : "Pronóstico guardado")
+        setHasPrediction(true)
+        setSavedHome(homeGoals)
+        setSavedAway(awayGoals)
+        setSavedPenalty(penaltyWinner)
       }
     })
-  }
-
-  const handleGoalChange = (team: "home" | "away", value: string) => {
-    const numValue = value === "" ? "" : Math.max(0, Math.min(99, parseInt(value) || 0)).toString()
-
-    if (team === "home") {
-      setHomeGoals(numValue)
-    } else {
-      setAwayGoals(numValue)
-    }
-
-    const home = team === "home" ? parseInt(numValue) || 0 : parseInt(homeGoals) || 0
-    const away = team === "away" ? parseInt(numValue) || 0 : parseInt(awayGoals) || 0
-    const otherFilled = (team === "home" ? awayGoals : homeGoals) !== ""
-
-    // Sólo persistimos cuando ambos marcadores están completos.
-    // En empate de eliminatoria esperamos a que se elija el clasificado.
-    const draw = numValue !== "" && otherFilled && home === away && match.isKnockout
-    if (numValue !== "" && otherFilled && !draw) {
-      persistir(home, away, undefined)
-    }
-  }
-
-  const handlePenaltySelect = (winner: "home" | "away") => {
-    setPenaltyWinner(winner)
-    persistir(parseInt(homeGoals) || 0, parseInt(awayGoals) || 0, winner)
   }
 
   return (
@@ -90,9 +85,7 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
     )}>
       {/* Phase badge and status */}
       <div className="absolute left-0 right-0 top-0 flex items-center justify-between bg-gradient-to-r from-secondary via-secondary/80 to-secondary px-4 py-2">
-        <Badge variant="outline" className="border-fifa-gold/50 bg-fifa-gold/10 text-fifa-gold">
-          {match.phase}
-        </Badge>
+        <PhaseBadge fase={match.fase} />
         <Badge
           variant="outline"
           className={cn(
@@ -108,8 +101,9 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
       </div>
 
       <CardContent className="p-6 pt-14">
-        {/* Date and time */}
+        {/* Grupo + date and time */}
         <div className="mb-4 text-center">
+          {match.grupo && <MatchGrupoLabel grupo={match.grupo} className="mb-1.5" />}
           <p className="text-sm font-medium text-muted-foreground">{match.date}</p>
           <p className="text-lg font-bold text-fifa-gold">{match.time}</p>
         </div>
@@ -119,40 +113,30 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
           {/* Home team */}
           <div className="flex flex-1 flex-col items-center gap-2">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-secondary/50 p-2 ring-2 ring-border/50 md:h-20 md:w-20">
-              <span className="text-3xl md:text-4xl">{match.homeFlag}</span>
+              <img src={match.homeFlag} alt={match.homeTeam} className="h-full w-full object-contain" />
             </div>
             <span className="text-center text-sm font-semibold text-foreground md:text-base">{match.homeTeam}</span>
           </div>
 
-          {/* Score inputs */}
+          {/* Score steppers */}
           <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min="0"
-              max="99"
+            <ScoreInput
               value={homeGoals}
-              onChange={(e) => handleGoalChange("home", e.target.value)}
+              onChange={setHomeGoals}
               disabled={!isOpen || isPending}
-              className="h-14 w-14 border-2 border-primary/30 bg-background/50 text-center text-2xl font-bold text-foreground focus:border-primary md:h-16 md:w-16 md:text-3xl"
-              placeholder="-"
             />
             <span className="text-2xl font-bold text-muted-foreground">:</span>
-            <Input
-              type="number"
-              min="0"
-              max="99"
+            <ScoreInput
               value={awayGoals}
-              onChange={(e) => handleGoalChange("away", e.target.value)}
+              onChange={setAwayGoals}
               disabled={!isOpen || isPending}
-              className="h-14 w-14 border-2 border-primary/30 bg-background/50 text-center text-2xl font-bold text-foreground focus:border-primary md:h-16 md:w-16 md:text-3xl"
-              placeholder="-"
             />
           </div>
 
           {/* Away team */}
           <div className="flex flex-1 flex-col items-center gap-2">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-secondary/50 p-2 ring-2 ring-border/50 md:h-20 md:w-20">
-              <span className="text-3xl md:text-4xl">{match.awayFlag}</span>
+              <img src={match.awayFlag} alt={match.awayTeam} className="h-full w-full object-contain" />
             </div>
             <span className="text-center text-sm font-semibold text-foreground md:text-base">{match.awayTeam}</span>
           </div>
@@ -173,7 +157,7 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
               <div className="flex gap-3">
                 <Button
                   variant={penaltyWinner === "home" ? "default" : "outline"}
-                  onClick={() => handlePenaltySelect("home")}
+                  onClick={() => setPenaltyWinner("home")}
                   disabled={isPending}
                   className={cn(
                     "flex-1 transition-all",
@@ -184,7 +168,7 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
                 </Button>
                 <Button
                   variant={penaltyWinner === "away" ? "default" : "outline"}
-                  onClick={() => handlePenaltySelect("away")}
+                  onClick={() => setPenaltyWinner("away")}
                   disabled={isPending}
                   className={cn(
                     "flex-1 transition-all",
@@ -198,11 +182,25 @@ export function MatchCard({ match, onSave }: MatchCardProps) {
           </div>
         )}
 
-        {/* Saving indicator */}
-        {isPending && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Guardando…
+        {/* Save button */}
+        {isOpen && (
+          <div className="mt-5">
+            <Button
+              onClick={handleSave}
+              disabled={!canSave || isPending}
+              className="w-full gap-2"
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isPending
+                ? "Guardando…"
+                : hasPrediction
+                  ? "Actualizar resultado"
+                  : "Guardar resultado"}
+            </Button>
           </div>
         )}
       </CardContent>
