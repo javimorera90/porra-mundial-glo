@@ -29,7 +29,7 @@ export default async function LoginPage({
             FIFA World Cup 2026™
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Accede con tu correo electrónico
+            Regístrate o accede con tu correo
           </p>
         </div>
 
