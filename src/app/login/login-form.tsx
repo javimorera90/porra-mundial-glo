@@ -1,103 +1,132 @@
 "use client"
 
-import { useCallback, useState, useTransition } from "react"
-import { Sparkles } from "lucide-react"
+import { LogIn, Sparkles, UserPlus } from "lucide-react"
 import { EMAIL_SIN_ALIAS_MENSAJE } from "@/lib/email"
-import { emailTienePerfilAction, solicitarMagicLink } from "./actions"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { solicitarMagicLinkLogin, solicitarMagicLinkRegistro } from "./actions"
 
 /** Parte local sin + (alias); el navegador valida antes del envío. */
 const PATRON_EMAIL_SIN_ALIAS = "^[^+@\\s]+@[^+@\\s]+\\.[^+@\\s]+$"
 
-export function LoginForm() {
-  const [email, setEmail] = useState("")
-  const [nombre, setNombre] = useState("")
-  const [yaRegistrado, setYaRegistrado] = useState<boolean | null>(null)
-  const [isPending, startTransition] = useTransition()
+const inputClassName =
+  "h-11 border-border/80 bg-input/50 focus-visible:border-fifa-green focus-visible:ring-fifa-green/30"
 
-  const revisarEmail = useCallback((value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed || !trimmed.includes("@")) {
-      setYaRegistrado(null)
-      return
-    }
-    startTransition(async () => {
-      const existe = await emailTienePerfilAction(trimmed)
-      setYaRegistrado(existe)
-    })
-  }, [])
+type TabAuth = "login" | "registro"
 
-  const pideNombre = yaRegistrado === false
+interface LoginAuthTabsProps {
+  defaultTab?: TabAuth
+}
 
+export function LoginAuthTabs({ defaultTab = "login" }: LoginAuthTabsProps) {
   return (
-    <form action={solicitarMagicLink} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-foreground/90">
-          Correo electrónico
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            revisarEmail(e.target.value)
-          }}
-          onBlur={(e) => revisarEmail(e.target.value)}
-          pattern={PATRON_EMAIL_SIN_ALIAS}
-          title={EMAIL_SIN_ALIAS_MENSAJE}
-          className="rounded-lg border border-border bg-input/50 px-3 py-2 text-foreground placeholder-muted-foreground focus:border-fifa-green focus:outline-none focus:ring-1 focus:ring-fifa-green"
-          placeholder="tu@email.com"
-        />
-        <p className="text-xs text-muted-foreground">
-          Te enviaremos un enlace mágico de acceso a tu bandeja de entrada. No se permiten alias con signo +.
-        </p>
+    <Tabs defaultValue={defaultTab} className="w-full gap-0">
+      <TabsList className="grid h-10 w-full grid-cols-2 bg-muted/60 p-1">
+        <TabsTrigger
+          value="login"
+          className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-fifa-green"
+        >
+          <LogIn className="h-4 w-4" />
+          Iniciar Sesión
+        </TabsTrigger>
+        <TabsTrigger
+          value="registro"
+          className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-fifa-green"
+        >
+          <UserPlus className="h-4 w-4" />
+          Registrarse
+        </TabsTrigger>
+      </TabsList>
+
+      {/* Altura fija: evita layout shift al cambiar de pestaña o mostrar avisos */}
+      <div className="mt-3 min-h-[19.5rem]">
+        <TabsContent value="login" className="mt-0 h-full outline-none">
+          <form action={solicitarMagicLinkLogin} className="flex h-full flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="login-email">Correo electrónico</Label>
+              <Input
+                id="login-email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                pattern={PATRON_EMAIL_SIN_ALIAS}
+                title={EMAIL_SIN_ALIAS_MENSAJE}
+                placeholder="tu@empresa.com"
+                className={inputClassName}
+              />
+            </div>
+
+            {/* Reserva de espacio para mensajes inline futuros */}
+            <div className="min-h-5" aria-hidden />
+
+            <button
+              type="submit"
+              className="mt-auto flex h-11 items-center justify-center gap-2 rounded-lg bg-fifa-green px-4 font-semibold text-fifa-green-foreground transition hover:opacity-90"
+            >
+              <Sparkles className="h-4 w-4" />
+              Enviar enlace de acceso
+            </button>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="registro" className="mt-0 h-full outline-none">
+          <form
+            action={solicitarMagicLinkRegistro}
+            className="flex h-full flex-col gap-4"
+          >
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="registro-nombre">Nombre y apellido</Label>
+              <Input
+                id="registro-nombre"
+                name="nombre_completo"
+                type="text"
+                required
+                minLength={2}
+                maxLength={120}
+                autoComplete="name"
+                placeholder="Ej. María García"
+                className={inputClassName}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="registro-email">Correo electrónico</Label>
+              <Input
+                id="registro-email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                pattern={PATRON_EMAIL_SIN_ALIAS}
+                title={EMAIL_SIN_ALIAS_MENSAJE}
+                placeholder="nombre.apellido@globant.com"
+                className={inputClassName}
+              />
+            </div>
+
+            <p className="text-center text-xs leading-relaxed text-muted-foreground/90">
+              Uso exclusivo para cuentas corporativas{" "}
+              <span className="font-medium text-fifa-green/80">@globant.com</span>
+              {" "}y correos autorizados para pruebas.
+            </p>
+
+            <div className="min-h-5" aria-hidden />
+
+            <button
+              type="submit"
+              className="mt-auto flex h-11 items-center justify-center gap-2 rounded-lg bg-fifa-green px-4 font-semibold text-fifa-green-foreground transition hover:opacity-90"
+            >
+              <UserPlus className="h-4 w-4" />
+              Crear cuenta y enviar enlace
+            </button>
+          </form>
+        </TabsContent>
       </div>
-
-      {pideNombre && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nombre_completo" className="text-sm font-medium text-foreground/90">
-            Nombre y apellido
-          </label>
-          <input
-            id="nombre_completo"
-            name="nombre_completo"
-            type="text"
-            required
-            minLength={2}
-            maxLength={120}
-            autoComplete="name"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            className="rounded-lg border border-border bg-input/50 px-3 py-2 text-foreground placeholder-muted-foreground focus:border-fifa-green focus:outline-none focus:ring-1 focus:ring-fifa-green"
-            placeholder="Ej. María García"
-          />
-          <p className="text-xs text-muted-foreground">
-            Obligatorio en el primer acceso; aparecerá en la tabla de posiciones.
-          </p>
-        </div>
-      )}
-
-      {yaRegistrado === true && (
-        <p className="text-xs text-fifa-green/90">
-          Ya tienes cuenta con este correo. Solo necesitas el enlace de acceso.
-        </p>
-      )}
-
-      {isPending && (
-        <p className="text-xs text-muted-foreground">Comprobando correo…</p>
-      )}
-
-      <button
-        type="submit"
-        disabled={pideNombre && nombre.trim().length < 2}
-        className="flex items-center justify-center gap-1.5 rounded-lg bg-fifa-green px-4 py-2.5 font-semibold text-fifa-green-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Sparkles className="h-4 w-4" />
-        Enviar enlace de acceso
-      </button>
-    </form>
+    </Tabs>
   )
 }
+
+/** @deprecated Usar LoginAuthTabs */
+export const LoginForm = LoginAuthTabs

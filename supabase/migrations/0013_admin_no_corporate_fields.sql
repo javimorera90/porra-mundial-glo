@@ -1,6 +1,6 @@
 -- [DB-Agent] Limpia los campos corporativos del perfil admin y añade restricción
 -- de integridad: un perfil con rol 'admin' no puede tener sede, departamento
--- ni nacionalidad. De este modo nunca aparecerá en los filtros del Leaderboard.
+-- ni nacionalidad. En leaderboard aparece con is_glober = false (migración 0019).
 
 -- 1. Borrar los valores existentes en el perfil admin
 UPDATE perfiles

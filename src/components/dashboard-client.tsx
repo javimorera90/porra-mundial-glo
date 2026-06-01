@@ -95,7 +95,15 @@ export function DashboardClient({ perfil, partidos, equipos, players }: Dashboar
         {/* Main content based on active tab */}
         <div className="animate-in fade-in duration-300">
           {activeTab === "matches" && <MatchesView partidos={partidos} equipos={equipos} />}
-          {activeTab === "leaderboard" && <Leaderboard players={players} />}
+          {activeTab === "leaderboard" && (
+            <Leaderboard
+              players={players}
+              currentUserId={perfil.id}
+              currentUserHub={perfil.hub}
+              currentUserEstudio={perfil.estudio}
+              currentUserNacionalidad={perfil.nacionalidad}
+            />
+          )}
           {activeTab === "rules" && <RulesSection />}
         </div>
       </main>

@@ -3,52 +3,40 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { validarEmailAccesoPermitido } from '@/lib/auth-access'
+import { traducirErrorAuth } from '@/lib/auth-errors'
 import { validarEmailSinAlias } from '@/lib/email'
 import { validarNombre } from '@/lib/nombre'
 import { createClient } from '@/utils/supabase/server'
 
-/** Indica si el email ya tiene fila en perfiles (login sin pedir nombre). */
-export async function emailTienePerfilAction(email: string): Promise<boolean> {
-  const trimmed = email.trim()
-  if (!trimmed) return false
+type TabAuth = 'login' | 'registro'
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('email_tiene_perfil', {
-    p_email: trimmed,
-  })
-  if (error) {
-    console.error('[emailTienePerfilAction]', error)
-    return false
-  }
-  return data === true
+function redirectLoginError(mensaje: string, tab: TabAuth = 'login') {
+  redirect(
+    `/login?error=${encodeURIComponent(mensaje)}&tab=${tab}`
+  )
 }
 
-/** Envía un Magic Link al email indicado (@globant.com o excepciones en BBDD). */
-export async function solicitarMagicLink(formData: FormData) {
-  const email = String(formData.get('email') ?? '').trim()
-  const nombre = String(formData.get('nombre_completo') ?? '').trim()
-
+async function validarEmailParaMagicLink(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  email: string
+): Promise<string | null> {
   const errorEmail = validarEmailSinAlias(email)
-  if (errorEmail) {
-    redirect(`/login?error=${encodeURIComponent(errorEmail)}`)
-  }
-
-  const supabase = await createClient()
+  if (errorEmail) return errorEmail
 
   const errorAcceso = await validarEmailAccesoPermitido(supabase, email)
-  if (errorAcceso) {
-    redirect(`/login?error=${encodeURIComponent(errorAcceso)}`)
-  }
+  if (errorAcceso) return errorAcceso
 
-  const { data: yaRegistrado } = await supabase.rpc('email_tiene_perfil', {
-    p_email: email,
-  })
+  return null
+}
 
-  if (!yaRegistrado) {
-    const errorNombre = validarNombre(nombre)
-    if (errorNombre) {
-      redirect(`/login?error=${encodeURIComponent(errorNombre)}`)
-    }
+/** Magic link solo con email (usuarios ya registrados). */
+export async function solicitarMagicLinkLogin(formData: FormData) {
+  const email = String(formData.get('email') ?? '').trim()
+
+  const supabase = await createClient()
+  const errorValidacion = await validarEmailParaMagicLink(supabase, email)
+  if (errorValidacion) {
+    redirectLoginError(errorValidacion, 'login')
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
@@ -57,20 +45,65 @@ export async function solicitarMagicLink(formData: FormData) {
     email,
     options: {
       emailRedirectTo: `${siteUrl}/auth/callback`,
-      ...(!yaRegistrado && nombre
-        ? { data: { nombre_completo: nombre } }
-        : {}),
     },
   })
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`)
+    redirectLoginError(traducirErrorAuth(error.message), 'login')
   }
 
   redirect(
     `/login?message=${encodeURIComponent(
       `Revisa tu bandeja de ${email} — te hemos enviado un enlace de acceso.`
-    )}`
+    )}&tab=login`
+  )
+}
+
+/** Alta: nombre + email; rechaza correos que ya tienen perfil. */
+export async function solicitarMagicLinkRegistro(formData: FormData) {
+  const email = String(formData.get('email') ?? '').trim()
+  const nombre = String(formData.get('nombre_completo') ?? '').trim()
+
+  const errorNombre = validarNombre(nombre)
+  if (errorNombre) {
+    redirectLoginError(errorNombre, 'registro')
+  }
+
+  const supabase = await createClient()
+  const errorValidacion = await validarEmailParaMagicLink(supabase, email)
+  if (errorValidacion) {
+    redirectLoginError(errorValidacion, 'registro')
+  }
+
+  const { data: yaRegistrado } = await supabase.rpc('email_tiene_perfil', {
+    p_email: email,
+  })
+
+  if (yaRegistrado) {
+    redirectLoginError(
+      'Este correo ya está registrado. Usa la pestaña Iniciar Sesión.',
+      'registro'
+    )
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${siteUrl}/auth/callback`,
+      data: { nombre_completo: nombre },
+    },
+  })
+
+  if (error) {
+    redirectLoginError(traducirErrorAuth(error.message), 'registro')
+  }
+
+  redirect(
+    `/login?message=${encodeURIComponent(
+      `Revisa tu bandeja de ${email} — te hemos enviado un enlace para completar tu registro.`
+    )}&tab=registro`
   )
 }
 

@@ -90,7 +90,7 @@ export async function getEquipos(): Promise<Equipo[]> {
   return data as Equipo[]
 }
 
-/** Perfiles ordenados por puntos (ranking de la cohorte del usuario). Excluye admin. */
+/** Perfiles ordenados por puntos (cohorte is_glober; admin cuenta como no-glober). */
 export async function getLeaderboard(): Promise<Perfil[]> {
   const supabase = await createClient()
 
@@ -110,7 +110,6 @@ export async function getLeaderboard(): Promise<Perfil[]> {
   const { data, error } = await supabase
     .from('perfiles')
     .select('*')
-    .eq('rol', 'user')
     .eq('is_glober', perfil.is_glober)
     .order('puntos_totales', { ascending: false })
   if (error || !data) return []

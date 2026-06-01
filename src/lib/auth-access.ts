@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 /** Mensaje cuando el correo no es @globant.com ni está en la lista de excepciones. */
 export const EMAIL_ACCESO_DENEGADO_MENSAJE =
-  'Solo se permiten correos @globant.com o cuentas autorizadas para pruebas.'
+  'Solo se permiten correos @globant.com.'
 
 /**
  * Consulta en Postgres si el email puede registrarse / recibir magic link.

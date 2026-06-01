@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "db:seed-matches": "tsx --env-file=.env.local supabase/seed_partidos.ts"
+    "db:seed-matches": "tsx --env-file=.env.local supabase/seed_partidos.ts",
+    "db:seed-players": "tsx --env-file=.env.local supabase/seed_jugadores.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

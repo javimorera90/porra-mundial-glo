@@ -1,12 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trophy, Medal, Award, Building2, MapPin, Users, Globe, Flag } from "lucide-react"
+import { Trophy, Medal, Award, Building2, MapPin, Users, Globe, Flag, Crosshair } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { NationalityAvatar } from "@/components/nationality-avatar"
 import { perfilToPlayer, type PlayerVM } from "@/lib/mappers"
@@ -55,14 +56,73 @@ function getRankIcon(rank: number) {
   return null
 }
 
-function getRankStyles(rank: number) {
+function getRankStyles(rank: number, isCurrentUser: boolean) {
+  if (isCurrentUser) {
+    return "bg-fifa-green/15 ring-2 ring-inset ring-fifa-green/40 border-l-4 border-l-fifa-green shadow-sm"
+  }
   if (rank === 1) return "bg-gradient-to-r from-fifa-gold/20 to-transparent border-l-4 border-l-fifa-gold"
   if (rank === 2) return "bg-gradient-to-r from-gray-400/10 to-transparent border-l-4 border-l-gray-400"
   if (rank === 3) return "bg-gradient-to-r from-amber-700/10 to-transparent border-l-4 border-l-amber-700"
   return ""
 }
 
-function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
+function rowAnchorId(playerId: string) {
+  return `leaderboard-player-${playerId}`
+}
+
+type GroupDimension = "hub" | "estudio" | "nationality"
+
+interface CurrentUserGroups {
+  hub: string | null
+  estudio: string | null
+  nacionalidad: string | null
+}
+
+/** Sin hub, estudio ni nacionalidad en perfil (p. ej. admin). */
+function usuarioTieneGrupoCorporativo(user: CurrentUserGroups): boolean {
+  return !!(user.hub || user.estudio || user.nacionalidad)
+}
+
+function nombreGrupoUsuario(
+  groupType: GroupDimension,
+  user: CurrentUserGroups
+): string | null {
+  if (groupType === "hub") return user.hub
+  if (groupType === "estudio") return user.estudio
+  return user.nacionalidad
+}
+
+function primerTipoGrupoConDato(
+  user: CurrentUserGroups,
+  preferido?: GroupDimension
+): GroupDimension | null {
+  const orden: GroupDimension[] = preferido
+    ? [preferido, "hub", "estudio", "nationality"]
+    : ["hub", "estudio", "nationality"]
+  const visto = new Set<GroupDimension>()
+  for (const t of orden) {
+    if (visto.has(t)) continue
+    visto.add(t)
+    if (nombreGrupoUsuario(t, user)) return t
+  }
+  return null
+}
+
+function groupAnchorId(groupType: GroupDimension, groupName: string) {
+  return `leaderboard-group-${groupType}-${encodeURIComponent(groupName)}`
+}
+
+interface IndividualLeaderboardProps {
+  players: PlayerVM[]
+  currentUserId: string
+  scrollToUserRequest: number
+}
+
+function IndividualLeaderboard({
+  players,
+  currentUserId,
+  scrollToUserRequest,
+}: IndividualLeaderboardProps) {
   const [filterType, setFilterType] = useState<"general" | "hub" | "estudio" | "nationality">("general")
   const [selectedHub, setSelectedHub] = useState("Todos")
   const [selectedEstudio, setSelectedEstudio] = useState("Todos")
@@ -81,6 +141,24 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
     })
     // Reasignamos el rank según el subconjunto filtrado (orden ya por puntos).
     .map((player, index) => ({ ...player, rank: index + 1 }))
+
+  useEffect(() => {
+    if (scrollToUserRequest === 0) return
+    setFilterType("general")
+    setSelectedHub("Todos")
+    setSelectedEstudio("Todos")
+    setSelectedNationality("Todas")
+  }, [scrollToUserRequest])
+
+  useEffect(() => {
+    if (scrollToUserRequest === 0) return
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(rowAnchorId(currentUserId))
+        ?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [scrollToUserRequest, currentUserId, filteredPlayers])
 
   return (
     <div className="space-y-4">
@@ -167,12 +245,15 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPlayers.map((player) => (
+            {filteredPlayers.map((player) => {
+              const isCurrentUser = player.id === currentUserId
+              return (
               <TableRow
                 key={player.id}
+                id={rowAnchorId(player.id)}
                 className={cn(
-                  "border-border/30 transition-colors hover:bg-secondary/30",
-                  getRankStyles(player.rank)
+                  "scroll-mt-24 border-border/30 transition-colors hover:bg-secondary/30",
+                  getRankStyles(player.rank, isCurrentUser)
                 )}
               >
                 <TableCell className="text-center">
@@ -193,6 +274,11 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
                     />
                     <span className="font-medium text-foreground">
                       {player.name}
+                      {isCurrentUser && (
+                        <Badge className="ml-2 border-fifa-green/40 bg-fifa-green/20 text-[10px] text-fifa-green">
+                          Tú
+                        </Badge>
+                      )}
                       {player.name !== player.emailAlias && (
                         <span className="font-normal text-muted-foreground"> ({player.emailAlias})</span>
                       )}
@@ -231,7 +317,7 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
                   </span>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
             {filteredPlayers.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
@@ -246,10 +332,41 @@ function IndividualLeaderboard({ players }: { players: PlayerVM[] }) {
   )
 }
 
-function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
-  const [groupType, setGroupType] = useState<"hub" | "estudio" | "nationality">("hub")
+interface GroupLeaderboardProps {
+  players: PlayerVM[]
+  currentUserGroups: CurrentUserGroups
+  scrollToGroupRequest: number
+}
+
+function GroupLeaderboard({
+  players,
+  currentUserGroups,
+  scrollToGroupRequest,
+}: GroupLeaderboardProps) {
+  const [groupType, setGroupType] = useState<GroupDimension>("hub")
 
   const rankings = useMemo(() => calculateGroupRankings(players, groupType), [players, groupType])
+  const miGrupo = nombreGrupoUsuario(groupType, currentUserGroups)
+
+  useEffect(() => {
+    if (scrollToGroupRequest === 0) return
+    const tipo = primerTipoGrupoConDato(currentUserGroups, groupType)
+    if (tipo) setGroupType(tipo)
+  }, [scrollToGroupRequest, currentUserGroups, groupType])
+
+  useEffect(() => {
+    if (scrollToGroupRequest === 0) return
+    const tipo = primerTipoGrupoConDato(currentUserGroups, groupType)
+    const nombre = tipo ? nombreGrupoUsuario(tipo, currentUserGroups) : null
+    if (!tipo || !nombre) return
+
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(groupAnchorId(tipo, nombre))
+        ?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [scrollToGroupRequest, currentUserGroups, groupType, rankings])
 
   const getGroupIcon = () => {
     switch (groupType) {
@@ -299,12 +416,15 @@ function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rankings.map((group, index) => (
+            {rankings.map((group, index) => {
+              const isMyGroup = !!miGrupo && group.name === miGrupo
+              return (
               <TableRow
                 key={group.id}
+                id={groupAnchorId(groupType, group.name)}
                 className={cn(
-                  "border-border/30 transition-colors hover:bg-secondary/30",
-                  getRankStyles(index + 1)
+                  "scroll-mt-24 border-border/30 transition-colors hover:bg-secondary/30",
+                  getRankStyles(index + 1, isMyGroup)
                 )}
               >
                 <TableCell className="text-center">
@@ -338,6 +458,11 @@ function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
                         {group.name}
                       </Badge>
                     )}
+                    {isMyGroup && (
+                      <Badge className="border-fifa-green/40 bg-fifa-green/20 text-[10px] text-fifa-green">
+                        Tu grupo
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
@@ -358,7 +483,7 @@ function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
                   </span>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </div>
@@ -366,19 +491,62 @@ function GroupLeaderboard({ players }: { players: PlayerVM[] }) {
   )
 }
 
-export function Leaderboard({ players }: { players: Perfil[] }) {
+export function Leaderboard({
+  players,
+  currentUserId,
+  currentUserHub,
+  currentUserEstudio,
+  currentUserNacionalidad,
+}: {
+  players: Perfil[]
+  currentUserId: string
+  currentUserHub: string | null
+  currentUserEstudio: string | null
+  currentUserNacionalidad: string | null
+}) {
   const [viewType, setViewType] = useState<"individual" | "groups">("individual")
+  const [scrollToUserRequest, setScrollToUserRequest] = useState(0)
+  const [scrollToGroupRequest, setScrollToGroupRequest] = useState(0)
   const vms = useMemo<PlayerVM[]>(() => players.map((p, i) => perfilToPlayer(p, i + 1)), [players])
+  const userInList = vms.some((p) => p.id === currentUserId)
+  const currentUserGroups: CurrentUserGroups = {
+    hub: currentUserHub,
+    estudio: currentUserEstudio,
+    nacionalidad: currentUserNacionalidad,
+  }
+  const userHasGroup = usuarioTieneGrupoCorporativo(currentUserGroups)
+  const showVerMiPosicion =
+    viewType === "individual" ? userInList : userInList && userHasGroup
+
+  const verMiPosicion = () => {
+    if (viewType === "groups") {
+      setScrollToGroupRequest((n) => n + 1)
+    } else {
+      setScrollToUserRequest((n) => n + 1)
+    }
+  }
 
   return (
     <Card className="border-border/50 bg-gradient-to-br from-card to-card/80">
       <CardHeader className="pb-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-fifa-gold/20">
               <Trophy className="h-5 w-5 text-fifa-gold" />
             </div>
             <CardTitle className="text-xl font-bold text-foreground">Clasificación</CardTitle>
+            {showVerMiPosicion && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={verMiPosicion}
+                className="border-fifa-green/40 bg-fifa-green/10 text-fifa-green hover:bg-fifa-green/20"
+              >
+                <Crosshair className="h-4 w-4" />
+                Ver mi posición
+              </Button>
+            )}
           </div>
 
           <Tabs value={viewType} onValueChange={(v) => setViewType(v as typeof viewType)}>
@@ -397,7 +565,19 @@ export function Leaderboard({ players }: { players: Perfil[] }) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {viewType === "individual" ? <IndividualLeaderboard players={vms} /> : <GroupLeaderboard players={vms} />}
+        {viewType === "individual" ? (
+          <IndividualLeaderboard
+            players={vms}
+            currentUserId={currentUserId}
+            scrollToUserRequest={scrollToUserRequest}
+          />
+        ) : (
+          <GroupLeaderboard
+            players={vms}
+            currentUserGroups={currentUserGroups}
+            scrollToGroupRequest={scrollToGroupRequest}
+          />
+        )}
       </CardContent>
     </Card>
   )
